@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>CRASH X | Мультиплеер (локально/онлайн)</title>
+    <!-- Firebase SDK (подключается, но используется только при наличии конфига) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        /* ========== ВСЕ ВАШИ СТИЛИ (БЕЗ ИЗМЕНЕНИЙ) ========== */
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            background: linear-gradient(145deg, #0a0f1e 0%, #0c1222 100%);
+            font-family: 'Segoe UI', 'Inter', 'Courier New', monospace;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .app-container {
+            width: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+            background: rgba(8, 12, 24, 0.85);
+            backdrop-filter: blur(4px);
+            border-radius: 1.5rem;
+            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 95vh;
+            max-height: 750px;
+        }
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.8rem;
+            scrollbar-width: thin;
+        }
+        .game-tab, .inventory-tab, .profile-tab {
+            display: none;
+            flex-direction: column;
+            gap: 0.8rem;
+        }
+        .game-tab.active, .inventory-tab.active, .profile-tab.active {
+            display: flex;
+        }
+        .bottom-menu {
+            background: #03060ecc;
+            backdrop-filter: blur(12px);
+            border-top: 1px solid #ffb34733;
+            display: flex;
+            padding: 6px 8px;
+            justify-content: space-around;
+            align-items: center;
+            gap: 4px;
+        }
+        .menu-btn {
+            background: none;
+            border: none;
+            box-shadow: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 6px 8px;
+            border-radius: 2rem;
+            transition: 0.2s;
+            color: #bbccff;
+            font-size: 0.65rem;
+            font-weight: 600;
+            cursor: pointer;
+            flex: 1;
+            text-align: center;
+        }
+        .menu-btn.active {
+            background: #ffb34733;
+            color: #ffdd99;
+        }
+        .menu-btn span:first-child {
+            font-size: 1.3rem;
+        }
+        .stats-bar {
+            display: flex;
+            justify-content: space-between;
+            background: #00000066;
+            padding: 0.4rem 0.8rem;
+            border-radius: 2rem;
+            margin-bottom: 0.5rem;
+            border-bottom: 2px solid #ffb347;
+        }
+        .balance-card {
+            background: #1e2a3a;
+            padding: 0.1rem 0.8rem;
+            border-radius: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-weight: bold;
+        }
+        .balance-amount {
+            font-size: 1.3rem;
+            font-weight: 800;
+            color: #f5b042;
+            text-shadow: none;
+        }
+        .ton-symbol {
+            font-size: 1rem;
+            background: #f5a62320;
+            padding: 0 0.2rem;
+            border-radius: 20px;
+        }
+        .chart-panel {
+            background: #010a1acc;
+            border-radius: 1.2rem;
+            padding: 0.6rem;
+            text-align: center;
+        }
+        canvas {
+            background: #0b1018;
+            border-radius: 0.8rem;
+            width: 100%;
+            height: auto;
+            display: block;
+            box-shadow: 0 0 0 1px #ffb34733;
+        }
+        .multiplier-box {
+            margin-top: 8px;
+            background: #000000aa;
+            border-radius: 2.5rem;
+            padding: 0.1rem 0.8rem;
+            display: inline-block;
+        }
+        .current-mult {
+            font-size: 1.8rem;
+            font-weight: 900;
+            font-family: monospace;
+            color: #ffd966;
+            text-shadow: none;
+        }
+        .status {
+            background: #0f172a;
+            border-radius: 30px;
+            padding: 0.1rem 0.8rem;
+            font-size: 0.7rem;
+            display: inline-block;
+            margin-top: 6px;
+        }
+        .bet-controls {
+            background: #091020;
+            padding: 0.6rem;
+            border-radius: 1.2rem;
+        }
+        .input-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .bet-input {
+            background: #010a1a;
+            border: 2px solid #ffb347;
+            padding: 6px 10px;
+            border-radius: 2rem;
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: #f2c94c;
+            width: 120px;
+            text-align: center;
+            outline: none;
+        }
+        button {
+            background: radial-gradient(circle at 30% 10%, #ffb347, #ff7e05);
+            border: none;
+            padding: 5px 14px;
+            border-radius: 2rem;
+            font-weight: bold;
+            font-size: 0.8rem;
+            cursor: pointer;
+            color: #0a0a1f;
+            box-shadow: 0 3px 0 #a33f00;
+        }
+        button:active {
+            transform: translateY(2px);
+            box-shadow: 0 1px 0 #a33f00;
+        }
+        button:disabled {
+            opacity: 0.5;
+            transform: none;
+            cursor: not-allowed;
+        }
+        .cashout-btn {
+            background: radial-gradient(circle at 30% 10%, #4cff8e, #00b33c);
+            box-shadow: 0 3px 0 #006622;
+        }
+        .info-text {
+            color: #bbccff;
+            font-size: 0.6rem;
+            text-align: center;
+            margin-top: 5px;
+        }
+        .crash-reveal {
+            background: #1e1a2f;
+            border-radius: 1.5rem;
+            padding: 0.1rem;
+            font-size: 0.7rem;
+            margin-top: 6px;
+        }
+        .cooldown-timer {
+            margin-top: 6px;
+            font-size: 0.7rem;
+            background: #1f1a2e;
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 40px;
+            color: #ffaa88;
+        }
+        .history-section {
+            margin-top: 8px;
+            background: #010a1acc;
+            border-radius: 1.2rem;
+            padding: 6px;
+        }
+        .history-title {
+            font-size: 0.65rem;
+            color: #bbccff;
+            margin-bottom: 4px;
+            padding-left: 4px;
+        }
+        .history-list {
+            display: flex;
+            flex-direction: row;
+            gap: 6px;
+            overflow-x: auto;
+            padding: 2px 4px;
+            scrollbar-width: thin;
+        }
+        .history-item {
+            background: #1e2a3a;
+            border-radius: 2rem;
+            padding: 4px 10px;
+            font-family: monospace;
+            font-weight: bold;
+            font-size: 0.8rem;
+            color: #ffd966;
+            white-space: nowrap;
+            box-shadow: 0 0 0 1px #ffb34755;
+            flex-shrink: 0;
+        }
+        .players-list {
+            background: #01061480;
+            border-radius: 1rem;
+            padding: 0.4rem;
+            margin-top: 0.5rem;
+        }
+        .player-item {
+            background: #1f2a3e;
+            border-radius: 1rem;
+            padding: 6px 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-left: 4px solid #ffaa33;
+            font-size: 0.75rem;
+        }
+        .player-avatar {
+            width: 34px;
+            height: 34px;
+            background: #0b1424;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            flex-shrink: 0;
+            font-size: 1.2rem;
+        }
+        .player-name {
+            font-weight: bold;
+            color: #ffdd99;
+        }
+        .player-bet {
+            font-size: 0.65rem;
+            color: #aaffcc;
+        }
+        .player-status {
+            font-size: 0.65rem;
+            padding: 2px 5px;
+            border-radius: 20px;
+            background: #2a2f3f;
+        }
+        .inventory-list {
+            background: #01061480;
+            border-radius: 1rem;
+            padding: 0.4rem;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 65vh;
+            overflow-y: auto;
+        }
+        .inventory-item {
+            background: #1f2a3e;
+            border-radius: 1rem;
+            padding: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-left: 4px solid #ffaa33;
+        }
+        .item-photo {
+            width: 48px;
+            height: 48px;
+            background: #0b1424;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .item-photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .item-info {
+            flex: 1;
+        }
+        .item-name {
+            font-weight: bold;
+            font-size: 0.8rem;
+            color: #ffdd99;
+        }
+        .item-value {
+            font-size: 0.65rem;
+            color: #aaffcc;
+        }
+        .sell-item-btn {
+            background: #4c6ef5;
+            padding: 3px 10px;
+            font-size: 0.65rem;
+            box-shadow: none;
+            border-radius: 30px;
+        }
+        .inv-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid #ffb34755;
+        }
+        .profile-card {
+            background: #010a1acc;
+            border-radius: 1.5rem;
+            padding: 1rem;
+            text-align: center;
+        }
+        .profile-avatar {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 10px;
+            background: #0b1424;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            font-size: 3rem;
+        }
+        .profile-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .profile-name {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #ffdd99;
+            margin-bottom: 10px;
+        }
+        .profile-stat {
+            background: #1e2a3a;
+            border-radius: 1rem;
+            padding: 8px;
+            margin-top: 8px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+        }
+        .profile-stat span:first-child {
+            color: #bbccff;
+        }
+        .profile-stat span:last-child {
+            color: #aaffcc;
+            font-weight: bold;
+        }
+        .add-balance-btn {
+            background: radial-gradient(circle at 30% 10%, #4c6ef5, #2a4ad1);
+            margin-top: 15px;
+            padding: 8px 16px;
+            font-size: 0.9rem;
+            box-shadow: 0 3px 0 #1a2a8a;
+        }
+        .badge {
+            background: #2a2f3f;
+            display: inline-block;
+            border-radius: 40px;
+            padding: 2px 10px;
+            font-size: 0.6rem;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+        .other-players {
+            margin-top: 8px;
+            border-top: 1px solid #ffb34733;
+            padding-top: 6px;
+        }
+        .other-players-title {
+            font-size: 0.7rem;
+            font-weight: bold;
+            margin-bottom: 4px;
+            color: #bbccff;
+        }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <div class="main-content">
+        <!-- Вкладка ИГРА -->
+        <div id="gameTab" class="game-tab active">
+            <div class="stats-bar">
+                <div class="balance-card">
+                    <span>💎 БАЛАНС</span>
+                    <span class="balance-amount" id="balanceDisplay">1000</span>
+                    <span class="ton-symbol">ТОН</span>
+                </div>
+            </div>
+            <div class="chart-panel">
+                <canvas id="priceChart" width="500" height="160"></canvas>
+                <div class="multiplier-box">
+                    <span class="current-mult" id="currentMultBig">1.00</span>
+                </div>
+                <div><span class="status" id="gameStatusText">⚡ Ожидание ставки</span></div>
+                <div id="crashPointInfo" class="crash-reveal">💥 Точка краша: ???</div>
+                <div id="cooldownDisplay" class="cooldown-timer"></div>
+                <div class="badge" id="modeBadge" style="margin-top: 6px;">🎮 Локальный режим</div>
+            </div>
+            <div class="bet-controls">
+                <div class="input-group">
+                    <input type="number" id="betAmount" class="bet-input" value="50" step="10" min="1">
+                    <button id="startBetBtn">🚀 СТАВИТЬ ТОН</button>
+                    <button id="cashoutBtn" class="cashout-btn" disabled>💰 ЗАБРАТЬ ИКС</button>
+                </div>
+                <div class="info-text">⏳ Пауза 10 сек — можно сделать ставку. Игра начнётся автоматически.</div>
+            </div>
+            <div class="history-section">
+                <div class="history-title">📊 Последние 5 иксов</div>
+                <div id="historyList" class="history-list"></div>
+            </div>
+            <div id="messageArea" style="font-size:0.65rem; text-align:center; margin-top:4px;"></div>
+            <div class="players-list" id="playersList">
+                <div class="player-item">
+                    <div class="player-avatar" id="playerAvatar">👤</div>
+                    <div class="player-info">
+                        <div class="player-name" id="playerName">ВЫ</div>
+                        <div class="player-bet" id="playerBetDisplay">ставка: —</div>
+                    </div>
+                    <div class="player-status" id="playerStatusDisplay">⏳ ожидает</div>
+                </div>
+                <div class="other-players" id="otherPlayersBlock" style="display: none;">
+                    <div class="other-players-title">🎲 ДРУГИЕ ИГРОКИ</div>
+                    <div id="otherPlayersList"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Вкладка ИНВЕНТАРЬ -->
+        <div id="inventoryTab" class="inventory-tab">
+            <div class="inv-header"><span>🎒 ИНВЕНТАРЬ</span></div>
+            <div id="inventoryList" class="inventory-list"></div>
+            <div class="info-text">🐸 Plush Pepe | 🌸 Sakura | 🧢 Durov | 🍑 Peach | ⛑️ Helmet</div>
+        </div>
+
+        <!-- Вкладка ПРОФИЛЬ (с кнопкой +100) -->
+        <div id="profileTab" class="profile-tab">
+            <div class="profile-card">
+                <div class="profile-avatar" id="profileAvatar">👤</div>
+                <div class="profile-name" id="profileName">ВЫ</div>
+                <div class="profile-stat"><span>💰 Баланс</span><span id="profileBalance">1000</span></div>
+                <div class="profile-stat"><span>📊 Сумма ставок</span><span id="totalBetsAmount">0</span></div>
+                <button id="addBalanceBtn" class="add-balance-btn">➕ ПОЛУЧИТЬ 100 ТОН</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="bottom-menu">
+        <button class="menu-btn active" data-tab="game"><span>🎮</span><span>Игра</span></button>
+        <button class="menu-btn" data-tab="inventory"><span>🎁</span><span>Инвентарь</span></button>
+        <button class="menu-btn" data-tab="profile"><span>👤</span><span>Профиль</span></button>
+    </div>
+</div>
+
+<script>
+    // --------------------------------------------------------------
+    // КОНФИГУРАЦИЯ FIREBASE (ЗАМЕНИТЕ ДЛЯ ОНЛАЙН-РЕЖИМА)
+    // --------------------------------------------------------------
+    // Чтобы игра работала онлайн, вставьте сюда свои данные из консоли Firebase.
+    // Если оставить как есть (с пустыми строками), игра будет работать только локально.
+    const firebaseConfig = {
+        apiKey: "AIzaSyB1C0nls1NTECuO1GLH7De-71YR3fXNBQY",
+        authDomain: "crashx-84eac.firebaseapp.com",
+        databaseURL: "https://crashx-84eac-default-rtdb.firebaseio.com",
+        projectId: "crashx-84eac",
+        storageBucket: "crashx-84eac.firebasestorage.app",
+        messagingSenderId: "31100031466",
+        appId: "1:31100031466:web:7839d1e076031b533d2293"
+    };
+    // --------------------------------------------------------------
+
+    // ---- ПРОВЕРКА: включён ли онлайн-режим (Firebase) ----
+    let isOnline = false;
+    let db = null;
+    let myId = "local_" + Math.random().toString(36).substr(2, 8);
+    let myBetRef = null;
+    let onlineTimer = null;
+    let gameStateListener = null;
+    let betsListener = null;
+
+    // Попытка инициализации Firebase (если конфиг не пустой)
+    if (firebaseConfig.apiKey !== "AIzaSyB1C0nls1NTECuO1GLH7De-71YR3fXNBQY" && firebaseConfig.apiKey) {
+        try {
+            if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+            db = firebase.database();
+            isOnline = true;
+            document.getElementById('modeBadge').innerHTML = '🌐 Онлайн режим | RTP 30%';
+            document.getElementById('modeBadge').style.background = "#4c6ef5";
+            console.log("Firebase инициализирован, онлайн-режим включён");
+        } catch(e) {
+            console.warn("Ошибка Firebase:", e);
+            isOnline = false;
+            document.getElementById('modeBadge').innerHTML = '🎮 Локальный режим | RTP 30%';
+        }
+    } else {
+        console.log("Firebase не настроен, работаем локально");
+        document.getElementById('modeBadge').innerHTML = '🎮 Локальный режим | RTP 30%';
+    }
+
+    // --------------------------------------------------------------
+    // TELEGRAM (безопасно)
+    // --------------------------------------------------------------
+    let tg = null;
+    let playerTelegramName = "ВЫ";
+    let playerTelegramAvatar = "👤";
+    let playerTelegramAvatarUrl = null;
+    try {
+        if (window.Telegram && window.Telegram.WebApp) {
+            tg = window.Telegram.WebApp;
+            tg.ready();
+            tg.expand();
+            const user = tg.initDataUnsafe?.user;
+            if (user) {
+                playerTelegramName = user.first_name || user.username || "Игрок";
+                playerTelegramAvatarUrl = user.photo_url || null;
+                if (playerTelegramAvatarUrl) {
+                    playerTelegramAvatar = `<img src="${playerTelegramAvatarUrl}" alt="avatar">`;
+                } else {
+                    playerTelegramAvatar = "👤";
+                }
+            }
+        } else {
+            console.log("Работа вне Telegram");
+        }
+    } catch(e) { console.warn(e); }
+
+    const playerAvatarDiv = document.getElementById('playerAvatar');
+    const playerNameSpan = document.getElementById('playerName');
+    const profileAvatarDiv = document.getElementById('profileAvatar');
+    const profileNameSpan = document.getElementById('profileName');
+    if (playerTelegramAvatarUrl) {
+        const avatarHtml = `<img src="${playerTelegramAvatarUrl}">`;
+        playerAvatarDiv.innerHTML = avatarHtml;
+        profileAvatarDiv.innerHTML = avatarHtml;
+    } else {
+        playerAvatarDiv.innerHTML = playerTelegramAvatar;
+        profileAvatarDiv.innerHTML = playerTelegramAvatar;
+    }
+    playerNameSpan.innerText = playerTelegramName;
+    profileNameSpan.innerText = playerTelegramName;
+
+    // --------------------------------------------------------------
+    // ОСНОВНАЯ ИГРОВАЯ ЛОГИКА (общая для локального и онлайн-режима)
+    // --------------------------------------------------------------
+    const STORAGE_KEY = "crash_game_data";
+    const RTP = 0.30;
+    const HOUSE_EDGE = 1 - RTP;
+
+    let baseStep = 0.025;
+    let currentStepMultiplier = 1.0;
+    let tickCounter = 0;
+
+    const itemImages = {
+        "Plush Pepe": "https://i.getgems.io/A2butRA7DomstwoCktngZ4skAr2Jii6IBIcWcVgPEDs/rs:fill:500:500:1/g:ce/czM6Ly9nZXRnZW1zLXMzL25mdC1jb250ZW50LWNhY2hlL2ltYWdlcy9FUUJHLWc2YWhrQVVHV3BlZldieC1EXzlzUThvV2J2eTZwdXVxNzhVMmM0TlVERlMvMzBjMWI3NzYxNzVkMTRiNg",
+        "Sakura Flower": "https://cache.tonapi.io/imgproxy/V5fMvhnbHs0lzSt0G0atm3PciLCzlXI_B1MPMxvQLiU/rs:fill:500:500:1/g:no/aHR0cHM6Ly9uZnQuZnJhZ21lbnQuY29tL2dpZnQvc2FrdXJhZmxvd2VyLTY1MzI3LndlYnA.webp",
+        "Durov’s Cap": "https://avatars.mds.yandex.net/i?id=1a9e004b747688ef011c72303db1aad19f1008f4-5234562-images-thumbs&n=13",
+        "Precious Peach": "https://avatars.mds.yandex.net/i?id=7dd0ab32a833090e726e0f9545fa85b6d5b8142f-12371701-images-thumbs&n=13",
+        "Heroic Helmet": "https://avatars.mds.yandex.net/i?id=7ed70af3aa251dec50a07cc22039742d6aa339d0-4456735-images-thumbs&n=13"
+    };
+    function getItemImageUrl(name) { return itemImages[name]; }
+    function getItemByWinAmount(winAmount) {
+        if (winAmount >= 200) return { name: "Plush Pepe", emoji: "🐸" };
+        if (winAmount >= 150) return { name: "Heroic Helmet", emoji: "⛑️" };
+        if (winAmount >= 100) return { name: "Precious Peach", emoji: "🍑" };
+        if (winAmount >= 50) return { name: "Durov’s Cap", emoji: "🧢" };
+        return { name: "Sakura Flower", emoji: "🌸" };
+    }
+
+    let balance = 1000;
+    let inventory = [];
+    let totalBets = 0;
+    let roundActive = false;
+    let currentMultiplier = 1.00;
+    let crashPoint = 1.20;
+    let intervalId = null;
+    
+    let rawPoints = [];
+    let chartCanvas, ctx;
+    let crashRedEffect = false;
+
+    let cooldownActive = false;
+    let cooldownTimer = null;
+    let cooldownSeconds = 0;
+
+    let currentBetAmount = 0;
+    let hasBet = false;
+    let playerCashedOut = false;
+    let playerCashedOutMultiplier = 0;
+    let historyMultipliers = [];
+
+    // DOM
+    const balanceSpan = document.getElementById('balanceDisplay');
+    const multiplierBig = document.getElementById('currentMultBig');
+    const gameStatusSpan = document.getElementById('gameStatusText');
+    const crashPointSpan = document.getElementById('crashPointInfo');
+    const betInput = document.getElementById('betAmount');
+    const startBetBtn = document.getElementById('startBetBtn');
+    const cashoutBtn = document.getElementById('cashoutBtn');
+    const messageDiv = document.getElementById('messageArea');
+    const inventoryContainer = document.getElementById('inventoryList');
+    const cooldownDisplay = document.getElementById('cooldownDisplay');
+    const playerBetDisplay = document.getElementById('playerBetDisplay');
+    const playerStatusDisplay = document.getElementById('playerStatusDisplay');
+    const historyContainer = document.getElementById('historyList');
+    const profileBalanceSpan = document.getElementById('profileBalance');
+    const totalBetsSpan = document.getElementById('totalBetsAmount');
+    const addBalanceBtn = document.getElementById('addBalanceBtn');
+    const otherPlayersListDiv = document.getElementById('otherPlayersList');
+    const otherPlayersBlock = document.getElementById('otherPlayersBlock');
+
+    // ---- Сохранение/загрузка локальных данных ----
+    function saveGameData() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ balance, inventory, totalBets }));
+    }
+    function loadGameData() {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+            try {
+                const data = JSON.parse(saved);
+                balance = data.balance ?? 1000;
+                inventory = data.inventory ?? [];
+                totalBets = data.totalBets ?? 0;
+                inventory = inventory.filter(item => item && typeof item.value === 'number' && item.name);
+            } catch(e) {}
+        } else {
+            balance = 1000;
+            inventory = [];
+            totalBets = 0;
+        }
+        updateBalanceUI();
+        renderInventory();
+        updatePlayerUI();
+        updateProfileStats();
+    }
+
+    function updateProfileStats() {
+        profileBalanceSpan.innerText = balance.toFixed(2);
+        totalBetsSpan.innerText = totalBets.toFixed(2);
+    }
+
+    function updateHistoryUI() {
+        if (!historyContainer) return;
+        if (historyMultipliers.length === 0) {
+            historyContainer.innerHTML = '<div class="history-item">—</div>';
+            return;
+        }
+        let html = '';
+        const toShow = historyMultipliers.slice(-5);
+        toShow.forEach(x => {
+            let colorClass = (x >= 2.0) ? 'x-good' : (x < 1.5 ? 'x-bad' : '');
+            html += `<div class="history-item ${colorClass}">${x.toFixed(2)}x</div>`;
+        });
+        historyContainer.innerHTML = html;
+        historyContainer.scrollLeft = historyContainer.scrollWidth;
+    }
+    function addToHistory(mult) {
+        historyMultipliers.push(mult);
+        if (historyMultipliers.length > 50) historyMultipliers.shift();
+        updateHistoryUI();
+    }
+
+    function updatePlayerUI() {
+        if (hasBet && currentBetAmount > 0) {
+            playerBetDisplay.innerText = `💰 ставка: ${currentBetAmount} ТОН`;
+        } else {
+            playerBetDisplay.innerText = `ставка: —`;
+        }
+        if (roundActive) {
+            if (playerCashedOut) {
+                playerStatusDisplay.innerText = `✅ x${currentMultiplier.toFixed(2)}`;
+                playerStatusDisplay.style.background = "#ffaa4480";
+            } else if (hasBet) {
+                playerStatusDisplay.innerText = `🚀 в игре`;
+                playerStatusDisplay.style.background = "#4aff9e80";
+            } else {
+                playerStatusDisplay.innerText = `👁️ наблюдатель`;
+                playerStatusDisplay.style.background = "#6c757d80";
+            }
+        } else {
+            if (hasBet && !cooldownActive) {
+                playerStatusDisplay.innerText = `⏳ ожидает раунд`;
+                playerStatusDisplay.style.background = "#ffaa4480";
+            } else {
+                playerStatusDisplay.innerText = `⏳ ожидает`;
+                playerStatusDisplay.style.background = "#6c757d80";
+            }
+        }
+    }
+
+    function initCanvas() {
+        chartCanvas = document.getElementById('priceChart');
+        if (!chartCanvas) return;
+        ctx = chartCanvas.getContext('2d');
+        chartCanvas.width = 500;
+        chartCanvas.height = 160;
+        drawChart();
+    }
+
+    function drawChart() {
+        if (!ctx) return;
+        ctx.clearRect(0, 0, chartCanvas.width, chartCanvas.height);
+        if (rawPoints.length === 0) {
+            ctx.beginPath();
+            ctx.strokeStyle = "#3a6ea5";
+            ctx.lineWidth = 2;
+            ctx.moveTo(0, chartCanvas.height - 10);
+            ctx.lineTo(chartCanvas.width, chartCanvas.height - 10);
+            ctx.stroke();
+            ctx.fillStyle = "#ffaa66";
+            ctx.font = "9px monospace";
+            ctx.fillText("ожидание ставки", 10, 30);
+            return;
+        }
+        let maxMult = Math.max(...rawPoints.map(p => p.mult), crashPoint, 1.5);
+        if (maxMult < 1.5) maxMult = 1.5;
+        const minY = 1.0, rangeY = maxMult - minY;
+        const w = chartCanvas.width, h = chartCanvas.height, padB = 20, padT = 15;
+        const gh = h - padB - padT;
+        const getY = (mult) => {
+            let y = h - padB - ((mult - minY) / rangeY) * gh;
+            return Math.min(Math.max(y, 0), h - padB);
+        };
+        const maxTime = rawPoints.length > 1 ? rawPoints[rawPoints.length-1].time : 1;
+        ctx.beginPath();
+        ctx.strokeStyle = crashRedEffect ? "#ff3333" : "#4aff9e";
+        ctx.lineWidth = 2.5;
+        for (let i = 0; i < rawPoints.length; i++) {
+            let x = (rawPoints[i].time / maxTime) * w;
+            let y = getY(rawPoints[i].mult);
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        if (crashPoint > 1 && (roundActive || crashRedEffect)) {
+            ctx.beginPath();
+            ctx.strokeStyle = "#ff5555";
+            ctx.setLineDash([6,8]);
+            let crashY = getY(crashPoint);
+            if (crashY < 0) crashY = 0;
+            ctx.moveTo(0, crashY);
+            ctx.lineTo(w, crashY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = "#ff8888";
+            ctx.font = "8px monospace";
+            ctx.fillText(`${crashPoint.toFixed(2)}x`, w - 40, crashY - 3);
+        }
+        if (rawPoints.length > 1) {
+            const grad = ctx.createLinearGradient(0, 0, 0, h);
+            grad.addColorStop(0, crashRedEffect ? "#ff333330" : "#4aff9e30");
+            grad.addColorStop(1, "#4aff9e00");
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            const startX = 0;
+            const startY = getY(rawPoints[0].mult);
+            ctx.moveTo(startX, startY);
+            for (let i = 1; i < rawPoints.length; i++) {
+                const x = (rawPoints[i].time / maxTime) * w;
+                const y = getY(rawPoints[i].mult);
+                ctx.lineTo(x, y);
+            }
+            ctx.lineTo(w, h - padB);
+            ctx.lineTo(0, h - padB);
+            ctx.fill();
+        }
+        ctx.fillStyle = "#bbd9ff";
+        ctx.font = "7px monospace";
+        ctx.fillText(`текущий X: ${currentMultiplier.toFixed(2)}`, 10, 20);
+    }
+
+    function addChartPoint(mult) {
+        rawPoints.push({ time: rawPoints.length, mult });
+        if (rawPoints.length > 180) rawPoints.shift();
+        drawChart();
+    }
+
+    // ---- Инвентарь ----
+    function addItemToInventory(item, winValue) {
+        const newItem = { name: item.name, emoji: item.emoji, value: Math.floor(winValue), imageUrl: getItemImageUrl(item.name) };
+        inventory.unshift(newItem);
+        if (inventory.length > 40) inventory.pop();
+        renderInventory();
+        saveGameData();
+    }
+    function renderInventory() {
+        if (!inventoryContainer) return;
+        if (inventory.length === 0) {
+            inventoryContainer.innerHTML = `<div class="info-text">📦 Пусто. Забирайте ИКС, чтобы получить предметы.</div>`;
+            return;
+        }
+        let html = '';
+        inventory.forEach((item, idx) => {
+            let photoHtml = item.imageUrl ? `<img src="${item.imageUrl}">` : item.emoji;
+            html += `
+                <div class="inventory-item">
+                    <div class="item-photo">${photoHtml}</div>
+                    <div class="item-info">
+                        <div class="item-name">${item.name}</div>
+                        <div class="item-value">🎁 ${item.value} ТОН</div>
+                    </div>
+                    <button class="sell-item-btn sell-one-item" data-index="${idx}">💰 Продать</button>
+                </div>
+            `;
+        });
+        inventoryContainer.innerHTML = html;
+        document.querySelectorAll('.sell-one-item').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const idx = btn.getAttribute('data-index');
+                if (idx !== null && inventory[parseInt(idx)]) sellItemByIndex(parseInt(idx));
+            });
+        });
+    }
+    function sellItemByIndex(index) {
+        if (roundActive) { messageDiv.innerText = "Нельзя продавать во время полёта!"; return; }
+        const item = inventory[index];
+        balance += item.value;
+        updateBalanceUI();
+        inventory.splice(index, 1);
+        messageDiv.innerText = `💰 Продан ${item.name} за ${item.value} ТОН.`;
+        renderInventory();
+        updatePlayerUI();
+        saveGameData();
+    }
+
+    function generateCrashPoint() {
+        let r = Math.random();
+        let raw = 1 / (1 - HOUSE_EDGE * r);
+        let crash = Math.pow(raw, 1.3);
+        if (crash < 1.01) crash = 1.01;
+        return parseFloat(crash.toFixed(2));
+    }
+
+    function startCooldown() {
+        if (cooldownActive) return;
+        cooldownActive = true;
+        cooldownSeconds = 10;
+        cooldownDisplay.innerText = `⏳ Пауза ${cooldownSeconds} сек (можно сделать ставку)`;
+        startBetBtn.disabled = false;
+        betInput.disabled = false;
+        if (cooldownTimer) clearInterval(cooldownTimer);
+        cooldownTimer = setInterval(() => {
+            cooldownSeconds--;
+            if (cooldownSeconds <= 0) {
+                clearInterval(cooldownTimer);
+                cooldownTimer = null;
+                cooldownActive = false;
+                cooldownDisplay.innerText = '';
+                if (!roundActive) startRound();
+            } else {
+                cooldownDisplay.innerText = `⏳ Пауза ${cooldownSeconds} сек (можно сделать ставку)`;
+            }
+        }, 1000);
+    }
+
+    function stopRound(finalMult) {
+        if (intervalId) { clearInterval(intervalId); intervalId = null; }
+        roundActive = false;
+        cashoutBtn.disabled = true;
+        if (finalMult !== undefined && finalMult > 0) addToHistory(finalMult);
+        startCooldown();
+        updatePlayerUI();
+    }
+
+    function crashRound() {
+        if (!roundActive) return;
+        crashRedEffect = true;
+        drawChart();
+        const finalMult = crashPoint;
+        stopRound(finalMult);
+        gameStatusSpan.innerText = `💀 КРАШ! Раунд окончен`;
+        if (hasBet && !playerCashedOut) {
+            crashPointSpan.innerHTML = `💥 КРАШ! Точка: ${crashPoint.toFixed(2)}x ❌ Ставка ${currentBetAmount} ТОН сгорела.`;
+            messageDiv.innerText = `💥 Резкое падение! Вы проиграли ${currentBetAmount} ТОН.`;
+            saveGameData();
+        } else if (hasBet && playerCashedOut) {
+            crashPointSpan.innerHTML = `💥 КРАШ! Вы успели забрать x${(playerCashedOutMultiplier || currentMultiplier).toFixed(2)}.`;
+            messageDiv.innerText = `Раунд завершён. Вы забрали выигрыш ранее.`;
+        } else {
+            crashPointSpan.innerHTML = `💥 КРАШ! Точка: ${crashPoint.toFixed(2)}x`;
+            messageDiv.innerText = `Раунд завершён. Вы не делали ставку.`;
+        }
+        cashoutBtn.disabled = true;
+        startBetBtn.disabled = false;
+        betInput.disabled = false;
+        hasBet = false;
+        playerCashedOut = false;
+        currentBetAmount = 0;
+        updatePlayerUI();
+        drawChart();
+    }
+
+    function cashout() {
+        if (!roundActive) { messageDiv.innerText = "Нет активного раунда!"; return; }
+        if (!hasBet || playerCashedOut) { messageDiv.innerText = "Вы не сделали ставку или уже забрали!"; return; }
+        if (currentMultiplier >= crashPoint) { messageDiv.innerText = "Краш уже произошёл!"; return; }
+        let winAmount = currentBetAmount * currentMultiplier;
+        const rewardItem = getItemByWinAmount(winAmount);
+        addItemToInventory(rewardItem, winAmount);
+        playerCashedOut = true;
+        playerCashedOutMultiplier = currentMultiplier;
+        cashoutBtn.disabled = true;
+        messageDiv.innerText = `🎁 Вы забрали x${currentMultiplier.toFixed(2)}! Выигрыш ${winAmount.toFixed(2)} ТОН → получен предмет "${rewardItem.name}". Продайте в инвентаре!`;
+        crashPointSpan.innerHTML = `💰 Кэшаут на x${currentMultiplier.toFixed(2)} | Предмет: ${rewardItem.name}`;
+        gameStatusSpan.innerText = `✅ ЗАБРАЛ x${currentMultiplier.toFixed(2)}!`;
+        updatePlayerUI();
+        saveGameData();
+        // В онлайн-режиме также отправить кэшаут
+        if (isOnline && myBetRef) {
+            myBetRef.update({ cashedOut: true, cashoutMult: currentMultiplier });
+        }
+    }
+
+    function updateMultiplierTick() {
+        if (!roundActive) return;
+        tickCounter++;
+        if (tickCounter >= Math.floor(Math.random() * 4) + 2) {
+            tickCounter = 0;
+            currentStepMultiplier = 0.8 + Math.random() * 0.6;
+        }
+        let step = baseStep * currentStepMultiplier;
+        let nextMult = currentMultiplier + step;
+        if (nextMult >= crashPoint) {
+            currentMultiplier = crashPoint;
+            updateMultiplierUI();
+            crashRound();
+            return;
+        }
+        currentMultiplier = nextMult;
+        updateMultiplierUI();
+    }
+
+    function updateMultiplierUI() {
+        let str = currentMultiplier.toFixed(2);
+        multiplierBig.innerText = str;
+        if (roundActive) addChartPoint(currentMultiplier);
+    }
+
+    // ---- Локальный старт раунда (используется как в локальном, так и в онлайн-режиме, но онлайн синхронизирует состояние) ----
+    function startRound() {
+        if (roundActive || cooldownActive) return;
+        if (hasBet && currentBetAmount > 0) {
+            if (currentBetAmount > balance) {
+                messageDiv.innerText = `❌ Недостаточно ТОН! Ставка отменена.`;
+                hasBet = false;
+                currentBetAmount = 0;
+                updatePlayerUI();
+                startCooldown();
+                return;
+            }
+            balance -= currentBetAmount;
+            updateBalanceUI();
+            playerCashedOut = false;
+            saveGameData();
+        }
+        crashPoint = generateCrashPoint();
+        currentMultiplier = 1.00;
+        tickCounter = 0;
+        currentStepMultiplier = 1.0;
+        updateMultiplierUI();
+        crashRedEffect = false;
+        roundActive = true;
+        if (intervalId) clearInterval(intervalId);
+        intervalId = setInterval(updateMultiplierTick, 50);
+        rawPoints = [{ time: 0, mult: 1.00 }];
+        drawChart();
+        cashoutBtn.disabled = !(hasBet && !playerCashedOut);
+        startBetBtn.disabled = true;
+        betInput.disabled = true;
+        gameStatusSpan.innerText = `📈 РАКЕТА РАСТЁТ! x1.00`;
+        crashPointSpan.innerHTML = `💥 Точка краша: ???`;
+        if (hasBet) {
+            messageDiv.innerText = `Ставка ${currentBetAmount} ТОН. Множитель может расти до любых значений — забирай вовремя!`;
+        } else {
+            messageDiv.innerText = `Раунд начался. Вы не сделали ставку — наблюдайте.`;
+        }
+        updatePlayerUI();
+    }
+
+    function placeBet() {
+        if (roundActive) { messageDiv.innerText = "❌ Раунд уже идёт, ставку сделать нельзя!"; return; }
+        let bet = parseFloat(betInput.value);
+        if (isNaN(bet) || bet <= 0) { messageDiv.innerText = "Введите корректную ставку > 0"; return; }
+        if (bet > balance) { messageDiv.innerText = `❌ Недостаточно ТОН! Баланс: ${balance.toFixed(2)}`; return; }
+        currentBetAmount = bet;
+        hasBet = true;
+        totalBets += bet;
+        updateProfileStats();
+        saveGameData();
+        messageDiv.innerText = `✅ Вы сделали ставку ${bet} ТОН. Игра начнётся автоматически после паузы.`;
+        updatePlayerUI();
+        if (!roundActive && !cooldownActive) startRound();
+        // В онлайн-режиме отправляем ставку
+        if (isOnline && db) {
+            if (myBetRef) myBetRef.remove();
+            myBetRef = db.ref('bets/' + myId);
+            myBetRef.set({
+                name: playerTelegramName,
+                avatarUrl: playerTelegramAvatarUrl,
+                bet: currentBetAmount,
+                cashedOut: false,
+                timestamp: Date.now()
+            });
+        }
+    }
+
+    function updateBalanceUI() {
+        balanceSpan.innerText = balance.toFixed(2);
+        profileBalanceSpan.innerText = balance.toFixed(2);
+        updatePlayerUI();
+        saveGameData();
+    }
+
+    // ---- ОНЛАЙН-СИНХРОНИЗАЦИЯ (без лидера, через транзакции) ----
+    if (isOnline && db) {
+        // Слушаем изменения состояния игры
+        gameStateListener = db.ref('game').on('value', (snap) => {
+            const state = snap.val();
+            if (!state) return;
+            // Обновляем локальное состояние только если мы не в локальном режиме (но мы уже онлайн)
+            // Важно: не перезаписывать локальный таймер, а просто отображать
+            if (state.active !== undefined && !roundActive && !cooldownActive) {
+                roundActive = state.active;
+                currentMultiplier = state.multiplier || 1.00;
+                crashPoint = state.crashPoint || 1.20;
+                cooldownActive = false;
+                crashRedEffect = state.crashRed || false;
+                multiplierBig.innerText = currentMultiplier.toFixed(2);
+                crashPointSpan.innerHTML = `💥 Точка краша: ${crashPoint.toFixed(2)}x`;
+                if (state.active) {
+                    addChartPoint(currentMultiplier);
+                    gameStatusSpan.innerText = `📈 РАКЕТА РАСТЁТ! x${currentMultiplier.toFixed(2)}`;
+                    cashoutBtn.disabled = !(hasBet && !playerCashedOut);
+                } else if (state.cooldownUntil && state.cooldownUntil > Date.now()) {
+                    cooldownActive = true;
+                    cooldownSeconds = Math.ceil((state.cooldownUntil - Date.now())/1000);
+                    cooldownDisplay.innerText = `⏳ Пауза ${cooldownSeconds} сек`;
+                    gameStatusSpan.innerText = `⏳ Пауза ${cooldownSeconds} сек`;
+                } else {
+                    gameStatusSpan.innerText = "💤 Ожидание ставки";
+                    cooldownDisplay.innerText = "";
+                }
+                if (state.history) {
+                    historyMultipliers = state.history;
+                    updateHistoryUI();
+                }
+                drawChart();
+                updatePlayerUI();
+            }
+        });
+        // Слушаем ставки других игроков
+        betsListener = db.ref('bets').on('value', (snap) => {
+            const bets = snap.val() || {};
+            let html = '';
+            let hasOthers = false;
+            for (let id in bets) {
+                if (id === myId) continue;
+                hasOthers = true;
+                const b = bets[id];
+                let status = b.cashedOut ? `✅ x${b.cashoutMult?.toFixed(2)}` : (roundActive ? '🚀 в игре' : '⏳ ожидает');
+                let avatar = b.avatarUrl ? `<img src="${b.avatarUrl}" width="24" height="24" style="border-radius:50%">` : '👤';
+                html += `<div class="player-item" style="margin-top:4px;">
+                    <div class="player-avatar">${avatar}</div>
+                    <div class="player-name">${b.name}</div>
+                    <div class="player-bet">💰 ${b.bet} ТОН</div>
+                    <div style="font-size:0.6rem;">${status}</div>
+                </div>`;
+            }
+            if (hasOthers) {
+                otherPlayersBlock.style.display = 'block';
+                otherPlayersListDiv.innerHTML = html;
+            } else {
+                otherPlayersBlock.style.display = 'none';
+            }
+        });
+
+        // Запускаем цикл обновления игры через транзакции (без лидера)
+        onlineTimer = setInterval(async () => {
+            if (!db) return;
+            const gameRef = db.ref('game');
+            await gameRef.transaction((current) => {
+                let state = current || {};
+                if (state.active) {
+                    let mult = state.multiplier || 1.00;
+                    let crash = state.crashPoint || 1.20;
+                    let step = 0.025;
+                    let next = mult + step;
+                    if (next >= crash) {
+                        state.active = false;
+                        state.crashRed = true;
+                        state.cooldownUntil = Date.now() + 10000;
+                        state.multiplier = crash;
+                        // Обновляем историю
+                        const historyRef = db.ref('history');
+                        historyRef.transaction((hist) => {
+                            let h = hist || [];
+                            h.push(crash);
+                            if (h.length > 5) h.shift();
+                            return h;
+                        });
+                        // Очищаем ставки
+                        db.ref('bets').remove();
+                    } else {
+                        state.multiplier = next;
+                    }
+                } else {
+                    if (!state.cooldownUntil || state.cooldownUntil < Date.now()) {
+                        state.active = true;
+                        state.multiplier = 1.00;
+                        state.crashPoint = generateCrashPoint();
+                        state.cooldownUntil = null;
+                        state.crashRed = false;
+                        db.ref('bets').remove();
+                    }
+                }
+                return state;
+            });
+        }, 50);
+    }
+
+    // ---- Обработчики кнопок ----
+    startBetBtn.addEventListener('click', placeBet);
+    cashoutBtn.addEventListener('click', cashout);
+    if (addBalanceBtn) {
+        addBalanceBtn.addEventListener('click', () => {
+            balance += 100;
+            updateBalanceUI();
+            messageDiv.innerText = `💰 +100 ТОН! Новый баланс: ${balance.toFixed(2)} ТОН.`;
+        });
+    }
+
+    // Переключение вкладок
+    const gameTab = document.getElementById('gameTab');
+    const inventoryTab = document.getElementById('inventoryTab');
+    const profileTab = document.getElementById('profileTab');
+    const menuBtns = document.querySelectorAll('.menu-btn');
+    function switchTab(tabId) {
+        gameTab.classList.remove('active');
+        inventoryTab.classList.remove('active');
+        profileTab.classList.remove('active');
+        if (tabId === 'game') gameTab.classList.add('active');
+        else if (tabId === 'inventory') inventoryTab.classList.add('active');
+        else if (tabId === 'profile') profileTab.classList.add('active');
+        menuBtns.forEach(btn => {
+            if (btn.dataset.tab === tabId) btn.classList.add('active');
+            else btn.classList.remove('active');
+        });
+    }
+    menuBtns.forEach(btn => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+
+    window.addEventListener('load', () => {
+        initCanvas();
+        loadGameData();
+        gameStatusSpan.innerText = "💤 Ожидание ставки";
+        crashPointSpan.innerHTML = "💥 Точка краша: ???";
+        updatePlayerUI();
+        historyMultipliers = [1.08, 1.15, 1.42, 1.98, 2.37];
+        updateHistoryUI();
+        startCooldown();
+    });
+    window.addEventListener('beforeunload', () => {
+        if (intervalId) clearInterval(intervalId);
+        if (cooldownTimer) clearInterval(cooldownTimer);
+        if (onlineTimer) clearInterval(onlineTimer);
+        if (gameStateListener && db) db.ref('game').off('value', gameStateListener);
+        if (betsListener && db) db.ref('bets').off('value', betsListener);
+        if (myBetRef) myBetRef.remove();
+        saveGameData();
+    });
+</script>
+</body>
+</html>
